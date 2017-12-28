@@ -7,4 +7,5 @@ Implemented and applied several classifiers such as
 * linear multiclass SVM with hinge-loss (or max-margin loss)
 * softmax classifier with cross-entropy loss
 * two-layer vanilla neural network
+
 to **CIFAR-10** dataset with *SGD* for optimization and *L2 regularization* in all cases. *Cross validation* and *random search* methods were applied for hyperparameter tuning. Improvements gained by using *higher-level representations* (or "features") instead of raw pixel values are also examined.
