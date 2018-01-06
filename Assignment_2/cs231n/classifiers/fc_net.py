@@ -179,9 +179,15 @@ class FullyConnectedNet(object):
         # Define input-hidden_layer_1 params
         self.params['W1'] = np.random.normal(0,weight_scale,[input_dim,hidden_dims[0]])
         self.params['b1'] = np.zeros(hidden_dims[0])
+        if self.use_batchnorm:
+            self.params['gamma1'] = np.ones(hidden_dims[0])
+            self.params['beta1'] = np.zeros(hidden_dims[0])
         for i,h in enumerate(zip(hidden_dims[:-1],hidden_dims[1:])):
             self.params['W'+str(i+2)] = np.random.normal(0,weight_scale,[h[0],h[1]])
             self.params['b'+str(i+2)] = np.zeros(h[1])
+            if self.use_batchnorm:
+                self.params['gamma'+str(i+2)] = np.ones(h[1])
+                self.params['beta'+str(i+2)] = np.zeros(h[1])
         # Define last_hidden_layer - output params
         self.params['W'+str(self.num_layers)] = np.random.normal(0,weight_scale,[hidden_dims[-1],num_classes])
         self.params['b'+str(self.num_layers)] = np.zeros(num_classes)
@@ -243,21 +249,23 @@ class FullyConnectedNet(object):
         # self.bn_params[1] to the forward pass for the second batch normalization #
         # layer, etc.                                                              #
         ############################################################################
-        cache = []
         output = []
-        dropout_cache = []
+        cache = []
         o = X; c = None
         for i in range(1,self.num_layers):
-            o,c = affine_relu_forward(o,self.params['W'+str(i)],self.params['b'+str(i)])
+            l_cache = {}
+            o,l_cache['affine'] = affine_forward(o,self.params['W'+str(i)],self.params['b'+str(i)])
+            if self.use_batchnorm:
+                o, l_cache['bn'] = batchnorm_forward(o,self.params['gamma'+str(i)], self.params['beta'+str(i)],self.bn_params[i-1])
+            o,l_cache['relu'] = relu_forward(o)
             if self.use_dropout:
-                o,d_c = dropout_forward(o,self.dropout_param)
-                dropout_cache.append(d_c)
+                o,l_cache['dropout'] = dropout_forward(o,self.dropout_param)
             output.append(o)
-            cache.append(c)
+            cache.append(l_cache)
 
         o,c = affine_forward(o,self.params['W'+str(self.num_layers)],self.params['b'+str(self.num_layers)])
         output.append(o)
-        cache.append(c)
+        cache.append({'affine':c})
         scores = output[-1]
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -282,14 +290,20 @@ class FullyConnectedNet(object):
         # of 0.5 to simplify the expression for the gradient.                      #
         ############################################################################
         loss, error = softmax_loss(output[-1],y)
-        dx, dw, db = affine_backward(error, cache[-1])
+        dx, dw, db = affine_backward(error, cache[-1]['affine'])
         grads['W'+str(self.num_layers)] = dw + self.reg*self.params['W'+str(self.num_layers)]
         loss += 0.5*self.reg*np.sum(self.params['W'+str(self.num_layers)]**2)
         grads['b'+str(self.num_layers)] = db
         for i in range(2,self.num_layers+1):
+            l_cache = cache[-i]
             if self.use_dropout:
-                dx = dropout_backward(dx,dropout_cache[-i+1])
-            dx, dw, db = affine_relu_backward(dx, cache[-i])
+                dx = dropout_backward(dx,l_cache['dropout'])
+            dx = relu_backward(dx, l_cache['relu'])
+            if self.use_batchnorm:
+                dx, dgamma, dbeta = batchnorm_backward(dx, l_cache['bn'])
+                grads['gamma'+str(self.num_layers-i+1)]  = dgamma
+                grads['beta'+str(self.num_layers-i+1)]  = dbeta
+            dx, dw, db = affine_backward(dx, l_cache['affine'])
             grads['W'+str(self.num_layers-i+1)] = dw + self.reg*self.params['W'+str(self.num_layers-i+1)]
             loss += 0.5*self.reg*np.sum(self.params['W'+str(self.num_layers-i+1)]**2)
             grads['b'+str(self.num_layers-i+1)] = db
