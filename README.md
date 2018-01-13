@@ -12,9 +12,9 @@ to **CIFAR-10** dataset with *SGD* for optimization and *L2 regularization* in a
 
 ## Assignment 2
 * Implemented *Dropout* and *Batch Normalization* layers from scratch
-* Used above layers in a *Fully Connected Neural Network* and analyzed the improvements in performance on **CIFAR-10** dataset
+* Used above layers in a *Fully Connected Neural Network* and analyzed the improvements in performance on **CIFAR-10**
 * Implemented a *Convolutional Neural Network* using NumPy, complete with **convolutional**, **max-pool**, **spatial batch normalization** and **fully-connected** layers and used it for image classification on *CIFAR-10* dataset
-
+* Used **TensorFlow** to experiment on different architectures for *Convolutional Neural Networks* and obtain a decent performance on *CIFAR-10* dataset
 ## Assignment 3
 * Image captioning using vanilla RNN and then LSTMs
 * Generative Adversarial Networks
