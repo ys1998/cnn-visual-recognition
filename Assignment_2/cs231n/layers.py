@@ -393,12 +393,18 @@ def conv_forward_naive(x, w, b, conv_param):
     pad = conv_param['pad']
     N, C, H, W = x.shape
     F, _, HH, WW = w.shape
-    new_H = 1 + (H + 2 * pad - HH) / stride
-    new_W = 1 + (W + 2 * pad - WW) / stride
-    assert(isinstance(new_H, int))
-    assert(isinstance(new_W, int))
+    assert((H+2*pad-HH)%stride==0)
+    assert((W+2*pad-WW)%stride==0)
+    new_H = 1 + (H + 2 * pad - HH) // stride
+    new_W = 1 + (W + 2 * pad - WW) // stride
 
-    for 
+
+    out = np.zeros([N,F,new_H,new_W])
+    padded_x = np.pad(x,((0,0),(0,0),(pad,pad), (pad,pad)), 'constant', constant_values=0)
+    for n in range(N):
+        for i in range(new_H):
+            for j in range(new_W):
+                out[n,:,i,j] = (w*padded_x[n,:,i*stride:i*stride+HH,j*stride:j*stride+WW]).sum(axis=(1,2,3))+b
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -423,7 +429,32 @@ def conv_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the convolutional backward pass.                        #
     ###########################################################################
-    pass
+    x, w, b, conv_param = cache
+    stride = conv_param['stride']
+    pad = conv_param['pad']
+    N, C, H, W = x.shape
+    F, _, HH, WW = w.shape
+    new_H = 1 + (H + 2 * pad - HH) // stride
+    new_W = 1 + (W + 2 * pad - WW) // stride
+
+    dw = np.zeros(w.shape)
+    padded_x = np.pad(x,((0,0),(0,0),(pad,pad), (pad,pad)), 'constant', constant_values=0)
+    for n in range(N):
+        for i in range(new_H):
+            for j in range(new_W):
+                for f in range(F):
+                    dw[f,:,:,:] += padded_x[n,:,i*stride:i*stride+HH,j*stride:j*stride+WW]*dout[n,f,i,j]
+
+    db = np.sum(dout,axis=(0,2,3))
+
+    dpadded_x = np.zeros(padded_x.shape)
+    for n in range(N):
+        for i in range(new_H):
+            for j in range(new_W):
+                for f in range(F):
+                    dpadded_x[n,:,i*stride:i*stride+HH,j*stride:j*stride+WW] += w[f,:]*dout[n,f,i,j]
+
+    dx = dpadded_x[:,:,pad:-pad,pad:-pad]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -449,7 +480,18 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    stride = pool_param['stride']
+    N, C, H, W = x.shape
+    HH = pool_param['pool_height']
+    WW = pool_param['pool_width']
+    new_H = 1 + (H - HH) // stride
+    new_W = 1 + (W - WW) // stride
+
+    out = np.zeros([N,C,new_H, new_W])
+    for n in range(N):
+        for i in range(new_H):
+            for j in range(new_W):
+                out[n,:,i,j] = np.max(x[n,:,i*stride:i*stride+HH,j*stride:j*stride+WW],axis=(1,2))
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -472,7 +514,20 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    x, pool_param = cache
+    stride = pool_param['stride']
+    N, C, H, W = x.shape
+    HH = pool_param['pool_height']
+    WW = pool_param['pool_width']
+    new_H = 1 + (H - HH) // stride
+    new_W = 1 + (W - WW) // stride
+
+    dx = np.zeros(x.shape)
+    for n in range(N):
+        for i in range(new_H):
+            for j in range(new_W):
+                for f in range(C):
+                    dx[n,f,i*stride:i*stride+HH,j*stride:j*stride+WW][np.unravel_index(np.argmax(x[n,f,i*stride:i*stride+HH,j*stride:j*stride+WW]),(HH,WW))] += dout[n,f,i,j]
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -510,7 +565,13 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    out = np.zeros(x.shape)
+    cache = {}
+    H,W = x.shape[2:]
+    for i in range(H):
+        cache[i] = {}
+        for j in range(W):
+            out[:,:,i,j], cache[i][j] = batchnorm_forward(x[:,:,i,j],gamma, beta, bn_param)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -540,7 +601,13 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    dx = np.zeros(dout.shape)
+    dgamma = np.zeros(dout.shape[1])
+    dbeta = np.zeros(dout.shape[1])
+    for i in range(dout.shape[2]):
+        for j in range(dout.shape[3]):
+            dx_t, dg_t, db_t = batchnorm_backward_alt(dout[:,:,i,j],cache[i][j])
+            dx[:,:,i,j] += dx_t; dgamma += dg_t; dbeta += db_t
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
